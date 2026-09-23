@@ -18,6 +18,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BerechtigungsFehler.class)
     public ResponseEntity<FehlerDto> handleBerechtigung(BerechtigungsFehler e) {
+        if ("Login fehlgeschlagen".equalsIgnoreCase(e.getMessage())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new FehlerDto("AUTHENTIFIZIERUNG_FEHLGESCHLAGEN", e.getMessage()));
+        }
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new FehlerDto("BERECHTIGUNG_VERWEIGERT", e.getMessage()));
     }

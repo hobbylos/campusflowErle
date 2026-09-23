@@ -9,4 +9,5 @@ public interface RaumRepository {
     void speichern(Raum raum);
     Optional<Raum> findeNachId(String raumId);
     List<Raum> findeAlle(RaumFilter filter);
+    void loeschen(String raumId);
 }

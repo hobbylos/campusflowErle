@@ -46,8 +46,15 @@ class CampusFlowApiClient {
   hasPermission(action) {
     if (!this.currentUser || !this.currentUser.rollen) return false;
     for (const role of this.currentUser.rollen) {
-      if (role.berechtigungen && role.berechtigungen.includes(action)) return true;
-      if (role.name === "ADMIN") return true;
+      const roleName = typeof role === "string" ? role : role.name;
+      if (roleName === "ADMIN") return true;
+      if (typeof role === "object" && role.berechtigungen && role.berechtigungen.includes(action)) return true;
+      if (roleName === "NUTZER" || roleName === "STUDENT") {
+        if (["READ", "BOOK"].includes(action)) return true;
+      }
+      if (roleName === "DOZENT") {
+        if (["READ", "BOOK", "UPDATE_OWN_BOOKING"].includes(action)) return true;
+      }
     }
     return false;
   }
@@ -304,11 +311,37 @@ class CampusFlowApiClient {
       if (params.von) query.append("von", params.von);
       if (params.bis) query.append("bis", params.bis);
 
-      const res = await fetch(`${this.baseUrl}/buchungen?${query.toString()}`, {
-        headers: this.getHeaders()
-      });
-      if (!res.ok) throw await this.handleError(res);
-      return await res.json();
+      try {
+        const res = await fetch(`${this.baseUrl}/buchungen?${query.toString()}`, {
+          headers: this.getHeaders()
+        });
+        if (res.ok) {
+          const list = await res.json();
+          return Array.isArray(list) ? list : [list];
+        }
+        if (res.status === 404 || res.status === 405) {
+          const resMeine = await fetch(`${this.baseUrl}/buchungen/meine`, {
+            headers: this.getHeaders()
+          });
+          if (resMeine.ok) {
+            const list = await resMeine.json();
+            return Array.isArray(list) ? list : [list];
+          }
+        }
+        throw await this.handleError(res);
+      } catch (err) {
+        if (err.status) throw err;
+        try {
+          const resMeine = await fetch(`${this.baseUrl}/buchungen/meine`, {
+            headers: this.getHeaders()
+          });
+          if (resMeine.ok) {
+            const list = await resMeine.json();
+            return Array.isArray(list) ? list : [list];
+          }
+        } catch (e2) {}
+        throw err;
+      }
     }
 
     await this.delay(60);
@@ -442,51 +475,102 @@ class CampusFlowApiClient {
    * Returns: LoginAntwort { token, gueltigBis }
    */
   async login(uniKennung, credential) {
+    const rawUser = (uniKennung || "").trim();
+    const cleanUser = rawUser.toLowerCase();
+    const cleanPw = (credential || "").trim();
+
+    // Mapping von Aliassen für das Backend (z.B. admin -> admin01, student -> stud01)
+    let backendUser = rawUser;
+    if (cleanUser === "admin" || cleanUser === "lukas" || cleanUser === "verwaltung") {
+      backendUser = "admin01";
+    } else if (cleanUser === "student" || cleanUser === "anna" || cleanUser === "stud") {
+      backendUser = "stud01";
+    }
+
     if (this.mode === "live") {
       try {
-        const res = await fetch(`${this.baseUrl}/auth/login`, {
+        // Versuch 1: Mit backendUser (z. B. admin01)
+        let res = await fetch(`${this.baseUrl}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uniKennung, credential })
+          body: JSON.stringify({ uniKennung: backendUser, credential: cleanPw })
         });
+
+        // Falls mit backendUser nicht erfolgreich, aber rawUser abweicht, Versuch mit rawUser
+        if (!res.ok && backendUser !== rawUser) {
+          const retryRes = await fetch(`${this.baseUrl}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uniKennung: rawUser, credential: cleanPw })
+          });
+          if (retryRes.ok) res = retryRes;
+        }
+
         if (res.ok) {
           const data = await res.json();
           this.token = data.token;
+
+          if (data.user) {
+            this.currentUser = {
+              id: data.user.id,
+              name: data.user.name,
+              uniKennung: data.user.uniKennung || rawUser,
+              rollen: (data.user.rollen || []).map(r => typeof r === "string" ? { name: r, berechtigungen: r === "ADMIN" ? ["CREATE", "READ", "UPDATE", "DELETE", "BOOK", "MANAGE_ROLES"] : ["READ", "BOOK"] } : r)
+            };
+          } else {
+            // Aus Uni-Kennung ableiten
+            const isAdmin = backendUser === "admin01" || cleanUser.includes("admin") || cleanUser.includes("lukas");
+            this.currentUser = {
+              id: isAdmin ? "n-1" : "n-2",
+              name: isAdmin ? "Admin Verwaltung (Lukas)" : "Test Student (Anna)",
+              uniKennung: rawUser,
+              rollen: isAdmin
+                ? [{ name: "ADMIN", berechtigungen: ["CREATE", "READ", "UPDATE", "DELETE", "BOOK", "MANAGE_ROLES"] }]
+                : [{ name: "NUTZER", berechtigungen: ["READ", "BOOK"] }]
+            };
+          }
           this.saveSession();
-          return data;
-        } else if (res.status === 401) {
+          return { ...data, user: this.currentUser };
+        } else {
+          // Echter Fehler vom Backend (401 oder 403)
           throw await this.handleError(res);
         }
-        // Falls Backend 404 liefert (weil AuthController im Backend noch fehlt), Fallback auf Mock
       } catch (err) {
-        if (err.status === 401) throw err;
-        // Bei 404 oder Verbindungsfehler -> eleganter Fallback auf Mock
+        // Falls echter Fehler vom Backend (hat status) -> werfen!
+        if (err.status) throw err;
+        // Bei Verbindungsabbruch / Server offline -> Fallback auf Mock
+        console.warn("Backend nicht erreichbar, Fallback auf Mock-Modus", err);
       }
     }
 
+    // Mock-Logik
     await this.delay(60);
     const db = getMockStorage();
-    const cleanUser = (uniKennung || "").trim().toLowerCase();
-    const cleanPw = (credential || "").trim();
 
-    // Alias-Unterstützung (lukas -> admin, dozent -> schneider, student -> anna)
+    // Alias-Unterstützung (lukas -> admin, dozent -> schneider, student -> anna, admin01 -> admin, stud01 -> student)
     let foundUser = db.users.find(u => {
       const uname = u.uniKennung.toLowerCase();
       if (uname === cleanUser) return true;
+      if (cleanUser === "admin" && (uname === "admin01" || uname === "admin")) return true;
+      if (cleanUser === "admin01" && (uname === "admin01" || uname === "admin")) return true;
       if (cleanUser === "lukas" && uname === "admin") return true;
       if ((cleanUser === "schneider" || cleanUser === "prof") && uname === "dozent") return true;
-      if ((cleanUser === "anna" || cleanUser === "mueller") && uname === "student") return true;
+      if ((cleanUser === "anna" || cleanUser === "mueller" || cleanUser === "stud01") && (uname === "student" || uname === "stud01")) return true;
+      if (cleanUser === "student" && (uname === "student" || uname === "stud01")) return true;
       return false;
     });
 
     // Falls Nutzer nicht existiert, aber Zugangsdaten angegeben wurden -> dynamischer Test-Nutzer
     if (!foundUser && cleanUser.length > 0 && (cleanPw === "pass" || cleanPw === "admin" || cleanPw === "1234" || cleanPw === "password")) {
+      const isAdmin = cleanUser.includes("admin") || cleanUser.includes("lukas");
       foundUser = {
         id: "usr-" + cleanUser,
         name: cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1) + " (Benutzer)",
         uniKennung: cleanUser,
         password: cleanPw,
-        rollen: [{ name: "STUDENT", berechtigungen: ["READ", "BOOK"] }]
+        rollen: isAdmin
+          ? [{ name: "ADMIN", berechtigungen: ["CREATE", "READ", "UPDATE", "DELETE", "BOOK", "MANAGE_ROLES"] }]
+          : [{ name: "STUDENT", berechtigungen: ["READ", "BOOK"] }]
       };
       db.users.push(foundUser);
       saveMockStorage(db);
@@ -602,20 +686,29 @@ class CampusFlowApiClient {
   // ==========================================
 
   async handleError(res) {
+    let errBody = {};
     try {
-      const err = await res.json();
-      return {
-        status: res.status,
-        code: err.code || "HTTP_" + res.status,
-        nachricht: err.nachricht || res.statusText
-      };
+      errBody = await res.json();
     } catch (e) {
-      return {
-        status: res.status,
-        code: "HTTP_" + res.status,
-        nachricht: res.statusText || "Serverfehler aufgetreten."
-      };
+      errBody = { nachricht: res.statusText };
     }
+
+    const err = {
+      status: res.status,
+      code: errBody.code || "HTTP_" + res.status,
+      nachricht: errBody.nachricht || res.statusText || "Serverfehler aufgetreten."
+    };
+
+    // Automatisches Abmelden bei ungültigem / abgelaufenem Token (z.B. nach Server-Neustart)
+    if (res.status === 403 && (err.nachricht.includes("Nicht angemeldet") || err.nachricht.includes("Token abgelaufen") || err.nachricht.includes("Authorization-Header"))) {
+      this.logout();
+      if (typeof checkAuthGateState === "function") {
+        checkAuthGateState();
+      }
+      err.nachricht = "Deine Sitzung ist abgelaufen oder der Server wurde neu gestartet. Bitte melde dich erneut an.";
+    }
+
+    return err;
   }
 
   delay(ms) {

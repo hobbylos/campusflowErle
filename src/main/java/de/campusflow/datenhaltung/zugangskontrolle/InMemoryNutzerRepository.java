@@ -23,17 +23,40 @@ public class InMemoryNutzerRepository implements NutzerRepository {
     private final Map<String, Nutzer> nutzerNachId = new ConcurrentHashMap<>();
 
     public InMemoryNutzerRepository() {
-        Nutzer admin = new Nutzer("n-1", "admin01", "Admin Verwaltung", Set.of(Rolle.ADMIN));
-        Nutzer nutzer = new Nutzer("n-2", "stud01", "Test Student", Set.of(Rolle.NUTZER));
+        Nutzer admin = new Nutzer("n-1", "admin01", "Admin Verwaltung (Lukas)", Set.of(Rolle.ADMIN));
+        Nutzer adminAlias = new Nutzer("n-1-alias", "admin", "Admin Verwaltung (Lukas)", Set.of(Rolle.ADMIN));
+        Nutzer nutzer = new Nutzer("n-2", "stud01", "Test Student (Anna)", Set.of(Rolle.NUTZER));
+        Nutzer nutzerAlias = new Nutzer("n-2-alias", "student", "Test Student (Anna)", Set.of(Rolle.NUTZER));
+        Nutzer dozent = new Nutzer("n-3", "dozent01", "Dr. Schneider (Dozent)", Set.of(new Rolle("DOZENT")));
+        Nutzer dozentAlias = new Nutzer("n-3-alias", "dozent", "Dr. Schneider (Dozent)", Set.of(new Rolle("DOZENT")));
+
         nutzerNachId.put(admin.getId(), admin);
+        nutzerNachId.put(adminAlias.getId(), adminAlias);
         nutzerNachId.put(nutzer.getId(), nutzer);
+        nutzerNachId.put(nutzerAlias.getId(), nutzerAlias);
+        nutzerNachId.put(dozent.getId(), dozent);
+        nutzerNachId.put(dozentAlias.getId(), dozentAlias);
     }
 
     @Override
     public Optional<Nutzer> findeNachUniKennung(String uniKennung) {
-        return nutzerNachId.values().stream()
-                .filter(n -> n.getUniKennung().equals(uniKennung))
+        if (uniKennung == null) return Optional.empty();
+        String trimmed = uniKennung.trim();
+        Optional<Nutzer> direct = nutzerNachId.values().stream()
+                .filter(n -> n.getUniKennung().equalsIgnoreCase(trimmed))
                 .findFirst();
+        if (direct.isPresent()) return direct;
+
+        if (trimmed.equalsIgnoreCase("admin") || trimmed.equalsIgnoreCase("lukas") || trimmed.equalsIgnoreCase("verwaltung")) {
+            return findeNachUniKennung("admin01");
+        }
+        if (trimmed.equalsIgnoreCase("student") || trimmed.equalsIgnoreCase("anna") || trimmed.equalsIgnoreCase("stud")) {
+            return findeNachUniKennung("stud01");
+        }
+        if (trimmed.equalsIgnoreCase("dozent") || trimmed.equalsIgnoreCase("schneider") || trimmed.equalsIgnoreCase("prof")) {
+            return findeNachUniKennung("dozent01");
+        }
+        return Optional.empty();
     }
 
     @Override

@@ -132,6 +132,10 @@ public class BuchungService {
         return buchungRepository.findeNachNutzer(nutzer.getId());
     }
 
+    public List<Buchung> getAlleBuchungen() {
+        return buchungRepository.findeAlle();
+    }
+
     public Buchung getBuchung(String buchungId) {
         return buchungRepository.findeNachId(buchungId)
                 .orElseThrow(() -> new NichtGefundenFehler("Buchung nicht gefunden: " + buchungId));

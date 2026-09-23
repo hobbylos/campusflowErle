@@ -67,4 +67,12 @@ public class RaumController {
         Nutzer nutzer = nutzerAufloeser.aufloesen(authHeader);
         return RaumDto.von(raumKatalogService.raumSperren(raumId, sperrung.von(), sperrung.bis(), nutzer));
     }
+
+    @DeleteMapping("/{raumId}")
+    public ResponseEntity<Void> raumLoeschen(@PathVariable String raumId,
+                                              @RequestHeader("Authorization") String authHeader) {
+        Nutzer nutzer = nutzerAufloeser.aufloesen(authHeader);
+        raumKatalogService.raumLoeschen(raumId, nutzer);
+        return ResponseEntity.noContent().build();
+    }
 }

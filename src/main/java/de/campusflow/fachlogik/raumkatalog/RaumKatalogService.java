@@ -77,6 +77,20 @@ public class RaumKatalogService {
     }
 
     public List<Raum> getRaeume(RaumFilter filter) {
-        return raumRepository.findeAlle(filter);
+        return raeumeFiltern(raumRepository.findeAlle(filter));
+    }
+
+    private List<Raum> raeumeFiltern(List<Raum> raeume) {
+        return raeume;
+    }
+
+    /** OpenAPI DELETE /raeume/{raumId} */
+    public void raumLoeschen(String raumId, Nutzer nutzer) {
+        if (!berechtigungsPruefer.darf(nutzer, Aktion.RAUM_ANLEGEN)) {
+            throw new BerechtigungsFehler("Keine Berechtigung zum Loeschen eines Raums");
+        }
+        Raum raum = raumRepository.findeNachId(raumId)
+                .orElseThrow(() -> new NichtGefundenFehler("Raum nicht gefunden: " + raumId));
+        raumRepository.loeschen(raumId);
     }
 }

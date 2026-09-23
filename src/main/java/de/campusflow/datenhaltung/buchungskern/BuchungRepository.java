@@ -9,6 +9,7 @@ public interface BuchungRepository {
     void speichern(Buchung buchung);
     Optional<Buchung> findeNachId(String buchungId);
     List<Buchung> findeNachNutzer(String nutzerId);
+    List<Buchung> findeAlle();
 
     /**
      * Ueberlappende, noch geplante Buchungen fuer den angegebenen Raum/Zeitraum.

@@ -33,4 +33,9 @@ public class InMemoryRaumRepository implements RaumRepository {
                 .filter(r -> filter.ausstattungsMerkmal() == null || r.getAusstattung().contains(filter.ausstattungsMerkmal()))
                 .toList();
     }
+
+    @Override
+    public void loeschen(String raumId) {
+        raeume.remove(raumId);
+    }
 }

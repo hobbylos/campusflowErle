@@ -19,6 +19,18 @@ const INITIAL_MOCK_DATA = {
       ]
     },
     {
+      id: "usr-admin-2",
+      name: "Admin Verwaltung",
+      uniKennung: "admin01",
+      password: "admin",
+      rollen: [
+        {
+          name: "ADMIN",
+          berechtigungen: ["CREATE", "READ", "UPDATE", "DELETE", "BOOK", "MANAGE_ROLES"]
+        }
+      ]
+    },
+    {
       id: "usr-docent-1",
       name: "Prof. Dr. Schneider (Dozent)",
       uniKennung: "dozent",
@@ -34,6 +46,18 @@ const INITIAL_MOCK_DATA = {
       id: "usr-student-1",
       name: "Anna Müller (Studentin)",
       uniKennung: "student",
+      password: "pass",
+      rollen: [
+        {
+          name: "STUDENT",
+          berechtigungen: ["READ", "BOOK"]
+        }
+      ]
+    },
+    {
+      id: "usr-student-2",
+      name: "Test Student",
+      uniKennung: "stud01",
       password: "pass",
       rollen: [
         {

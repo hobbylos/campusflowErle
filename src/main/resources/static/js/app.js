@@ -188,6 +188,19 @@ async function quickSwitchUser(userId) {
   const target = db.users.find(u => u.id === userId);
   if (!target) return;
 
+  if (window.api.mode === "live") {
+    try {
+      const resp = await window.api.login(target.uniKennung, target.password || "admin");
+      checkAuthGateState();
+      closeModal("modal-user-switch");
+      showToast("success", "Benutzer gewechselt", `Angemeldet als ${resp.user?.name || target.name}`, 200);
+      return;
+    } catch (err) {
+      showToast("error", "Benutzerwechsel fehlgeschlagen", err.nachricht, err.status);
+      return;
+    }
+  }
+
   window.api.currentUser = target;
   window.api.token = "mock-bearer-token-" + target.id;
   window.api.saveSession();

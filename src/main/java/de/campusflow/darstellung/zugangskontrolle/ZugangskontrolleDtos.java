@@ -8,7 +8,11 @@ import java.util.Set;
 
 record LoginAnfrageDto(String uniKennung, String credential) {}
 
-record LoginAntwortDto(String token, Instant gueltigBis) {}
+record LoginAntwortDto(String token, Instant gueltigBis, NutzerDto user) {
+    public LoginAntwortDto(String token, Instant gueltigBis) {
+        this(token, gueltigBis, null);
+    }
+}
 
 record NutzerDto(String id, String name, List<String> rollen) {
     public static NutzerDto von(Nutzer nutzer) {

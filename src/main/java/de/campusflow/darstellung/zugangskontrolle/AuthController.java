@@ -17,6 +17,6 @@ public class AuthController {
     @PostMapping("/login")
     public LoginAntwortDto login(@RequestBody LoginAnfrageDto anfrage) {
         AuthService.LoginErgebnis ergebnis = authService.login(anfrage.uniKennung(), anfrage.credential());
-        return new LoginAntwortDto(ergebnis.token(), ergebnis.gueltigBis());
+        return new LoginAntwortDto(ergebnis.token(), ergebnis.gueltigBis(), NutzerDto.von(ergebnis.nutzer()));
     }
 }

@@ -24,6 +24,16 @@ public class BuchungController {
         this.nutzerAufloeser = nutzerAufloeser;
     }
 
+    /** OpenAPI-konforme Buchungsliste mit optionalen Filtern (EC-3). */
+    @GetMapping
+    public List<BuchungDto> buchungenAuflisten(@RequestParam(required = false) String raumId,
+                                               @RequestParam(required = false) String nutzerId) {
+        return buchungService.getAlleBuchungen().stream()
+                .filter(b -> raumId == null || b.getRaumId().equals(raumId))
+                .filter(b -> nutzerId == null || b.getNutzerId().equals(nutzerId))
+                .map(BuchungDto::von).toList();
+    }
+
     /** EC-11 Akzeptanzkriterium "persoenliche Uebersicht" -- daher an den angemeldeten Nutzer gebunden statt an einen Query-Parameter. */
     @GetMapping("/meine")
     public List<BuchungDto> meineBuchungen(@RequestHeader("Authorization") String authHeader) {

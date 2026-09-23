@@ -41,4 +41,9 @@ public class InMemoryBuchungRepository implements BuchungRepository {
                 .filter(b -> b.getNutzerId().equals(nutzerId))
                 .toList();
     }
+
+    @Override
+    public List<Buchung> findeAlle() {
+        return new java.util.ArrayList<>(buchungen.values());
+    }
 }
