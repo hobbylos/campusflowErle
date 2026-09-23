@@ -574,6 +574,57 @@ class CampusFlowApiClient {
     return true;
   }
 
+  /**
+   * PATCH /api/v1/buchungen/{buchungId} (Zeitraum aendern)
+   * Body: BuchungAenderung { von, bis }
+   */
+  async updateBuchung(buchungId, aenderung) {
+    if (this.mode === "live") {
+      const res = await fetch(`${this.baseUrl}/buchungen/${encodeURIComponent(buchungId)}`, {
+        method: "PATCH",
+        headers: this.getHeaders(),
+        body: JSON.stringify(aenderung)
+      });
+      if (!res.ok) throw await this.handleError(res);
+      return await res.json();
+    }
+
+    await this.delay(80);
+    const db = getMockStorage();
+    const index = db.bookings.findIndex(b => b.id === buchungId);
+    if (index === -1) {
+      throw {
+        status: 404,
+        code: "BUCHUNG_NICHT_GEFUNDEN",
+        nachricht: `Buchung '${buchungId}' wurde nicht gefunden.`
+      };
+    }
+
+    const booking = db.bookings[index];
+    const neuesVon = aenderung.von || booking.von;
+    const neuesBis = aenderung.bis || booking.bis;
+
+    const kollision = db.bookings.some(b =>
+      b.id !== buchungId &&
+      b.raumId === booking.raumId &&
+      b.status !== "STORNIERT" &&
+      new Date(neuesVon) < new Date(b.bis) &&
+      new Date(neuesBis) > new Date(b.von)
+    );
+    if (kollision) {
+      throw {
+        status: 409,
+        code: "KONFLIKT",
+        nachricht: "Neuer Zeitraum kollidiert mit einer anderen Buchung"
+      };
+    }
+
+    booking.von = neuesVon;
+    booking.bis = neuesBis;
+    saveMockStorage(db);
+    return booking;
+  }
+
   // ==========================================
   // ---------- Zugangskontrolle (EC-4) -------
   // ==========================================

@@ -43,7 +43,7 @@ public class RaumKatalogService {
         }
         int kapazitaet = (daten.kapazitaet() != null) ? daten.kapazitaet() : 0;
         Raum raum = new Raum(UUID.randomUUID().toString(), daten.name(), kapazitaet,
-                daten.ausstattung(), daten.kategorie());
+                daten.ausstattung(), daten.kategorie(), daten.gebaeude());
         raumRepository.speichern(raum);
         facilityAdapter.raumErstellt(raum);
         return raum;
@@ -60,7 +60,8 @@ public class RaumKatalogService {
         int neueKapazitaet = (daten.kapazitaet() != null) ? daten.kapazitaet() : raum.getKapazitaet();
         List<String> neueAusstattung = daten.ausstattung() != null ? daten.ausstattung() : raum.getAusstattung();
         String neueKategorie = daten.kategorie() != null ? daten.kategorie() : raum.getKategorie();
-        raum.aktualisiere(neuerName, neueKapazitaet, neueAusstattung, neueKategorie);
+        String neuesGebaeude = daten.gebaeude() != null ? daten.gebaeude() : raum.getGebaeude();
+        raum.aktualisiere(neuerName, neueKapazitaet, neueAusstattung, neueKategorie, neuesGebaeude);
         raumRepository.speichern(raum);
         facilityAdapter.raumAktualisiert(raum);
         return raum;

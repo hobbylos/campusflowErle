@@ -17,17 +17,23 @@ public class Raum {
     private int kapazitaet;
     private List<String> ausstattung;
     private String kategorie;
+    private String gebaeude;
     private RaumStatus status;
     private Instant sperrVon;
     private Instant sperrBis;
 
     public Raum(String id, String name, int kapazitaet, List<String> ausstattung, String kategorie) {
+        this(id, name, kapazitaet, ausstattung, kategorie, null);
+    }
+
+    public Raum(String id, String name, int kapazitaet, List<String> ausstattung, String kategorie, String gebaeude) {
         pruefeInvarianten(name, kapazitaet);
         this.id = id;
         this.name = name;
         this.kapazitaet = kapazitaet;
         this.ausstattung = ausstattung;
         this.kategorie = kategorie;
+        this.gebaeude = gebaeude;
         this.status = RaumStatus.AKTIV;
     }
 
@@ -40,12 +46,13 @@ public class Raum {
         }
     }
 
-    public void aktualisiere(String name, int kapazitaet, List<String> ausstattung, String kategorie) {
+    public void aktualisiere(String name, int kapazitaet, List<String> ausstattung, String kategorie, String gebaeude) {
         pruefeInvarianten(name, kapazitaet);
         this.name = name;
         this.kapazitaet = kapazitaet;
         this.ausstattung = ausstattung;
         this.kategorie = kategorie;
+        this.gebaeude = gebaeude;
     }
 
     /** EC-10: Raum sperren (optionaler Zeitraum, Standard: sofort & unbefristet). */
@@ -85,6 +92,7 @@ public class Raum {
     public int getKapazitaet() { return kapazitaet; }
     public List<String> getAusstattung() { return ausstattung; }
     public String getKategorie() { return kategorie; }
+    public String getGebaeude() { return gebaeude; }
     public RaumStatus getStatus() { return status; }
     public Instant getSperrVon() { return sperrVon; }
     public Instant getSperrBis() { return sperrBis; }

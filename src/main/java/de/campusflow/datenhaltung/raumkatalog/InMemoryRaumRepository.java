@@ -27,7 +27,7 @@ public class InMemoryRaumRepository implements RaumRepository {
     @Override
     public List<Raum> findeAlle(RaumFilter filter) {
         return raeume.values().stream()
-                .filter(r -> filter.gebaeude() == null) // Platzhalter: Gebaeude-Feld noch nicht auf Raum abgebildet
+                .filter(r -> filter.gebaeude() == null || filter.gebaeude().equalsIgnoreCase(r.getGebaeude()))
                 .filter(r -> filter.kategorie() == null || filter.kategorie().equals(r.getKategorie()))
                 .filter(r -> filter.minKapazitaet() == null || r.getKapazitaet() >= filter.minKapazitaet())
                 .filter(r -> filter.ausstattungsMerkmal() == null || r.getAusstattung().contains(filter.ausstattungsMerkmal()))

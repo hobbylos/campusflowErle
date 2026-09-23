@@ -389,6 +389,7 @@ components:
           type: array
           items: { type: string }
         kategorie: { type: string }
+        gebaeude: { type: string }
         status:
           type: string
           enum: [AKTIV, GESPERRT]
@@ -403,6 +404,7 @@ components:
           type: array
           items: { type: string }
         kategorie: { type: string }
+        gebaeude: { type: string }
       required: [name, kapazitaet]
 
     Buchung:

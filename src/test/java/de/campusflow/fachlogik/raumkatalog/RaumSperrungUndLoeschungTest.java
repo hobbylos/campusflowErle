@@ -68,7 +68,7 @@ class RaumSperrungUndLoeschungTest {
     void raumSperren_storniertUeberlappendeBuchungenAutomatisch() {
         // 1. Raum anlegen
         Raum raum = raumKatalogService.raumAnlegen(
-                new RaumDaten("Seminarraum A1", 30, List.of("Beamer"), "Seminarraum"), admin);
+                new RaumDaten("Seminarraum A1", 30, List.of("Beamer"), "Seminarraum", null), admin);
 
         // 2. Buchung anlegen
         Instant start = Instant.now().plus(2, ChronoUnit.HOURS);
@@ -95,7 +95,7 @@ class RaumSperrungUndLoeschungTest {
     void raumLoeschen_storniertZugehoerigeBuchungenAutomatisch() {
         // 1. Raum anlegen
         Raum raum = raumKatalogService.raumAnlegen(
-                new RaumDaten("Labor B12", 20, List.of("PCs"), "Labor"), admin);
+                new RaumDaten("Labor B12", 20, List.of("PCs"), "Labor", null), admin);
 
         // 2. Zwei Buchungen anlegen
         Instant t1 = Instant.now().plus(1, ChronoUnit.DAYS);
@@ -118,7 +118,7 @@ class RaumSperrungUndLoeschungTest {
     @DisplayName("Negativfall (403): Student darf keinen Raum sperren")
     void studentDarfKeinenRaumSperren() {
         Raum raum = raumKatalogService.raumAnlegen(
-                new RaumDaten("Seminarraum C3", 25, List.of(), "Seminarraum"), admin);
+                new RaumDaten("Seminarraum C3", 25, List.of(), "Seminarraum", null), admin);
 
         assertThrows(BerechtigungsFehler.class, () ->
                 raumKatalogService.raumSperren(raum.getId(), Instant.now(), Instant.now().plus(1, ChronoUnit.HOURS), student));
@@ -128,13 +128,13 @@ class RaumSperrungUndLoeschungTest {
     @DisplayName("Negativfall (422): Raumgröße zu -5 ändern wirft Invarianten-Fehler")
     void raumAktualisieren_wirftFehler_wennKapazitaetUngueltig() {
         Raum raum = raumKatalogService.raumAnlegen(
-                new RaumDaten("Seminarraum D4", 40, List.of(), "Seminarraum"), admin);
+                new RaumDaten("Seminarraum D4", 40, List.of(), "Seminarraum", null), admin);
 
         // Versuch, die Raumgröße auf -5 zu ändern
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
                 raumKatalogService.raumAktualisieren(
                         raum.getId(),
-                        new RaumDaten(null, -5, null, null),
+                        new RaumDaten(null, -5, null, null, null),
                         admin));
 
         assertTrue(ex.getMessage().contains("Kapazitaet muss mindestens 1 sein") || ex.getMessage().contains("-5"));

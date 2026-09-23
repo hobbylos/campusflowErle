@@ -31,10 +31,11 @@ public class RaumController {
     }
 
     @GetMapping
-    public List<RaumDto> raeumeAuflisten(@RequestParam(required = false) String kategorie,
+    public List<RaumDto> raeumeAuflisten(@RequestParam(required = false) String gebaeude,
+                                          @RequestParam(required = false) String kategorie,
                                           @RequestParam(required = false) Integer minKapazitaet,
                                           @RequestParam(required = false) String ausstattung) {
-        RaumFilter filter = new RaumFilter(null, kategorie, minKapazitaet, ausstattung);
+        RaumFilter filter = new RaumFilter(gebaeude, kategorie, minKapazitaet, ausstattung);
         return raumKatalogService.getRaeume(filter).stream().map(RaumDto::von).toList();
     }
 
@@ -47,7 +48,7 @@ public class RaumController {
     public ResponseEntity<RaumDto> raumAnlegen(@RequestBody RaumEingabeDto eingabe,
                                                 @RequestHeader("Authorization") String authHeader) {
         Nutzer nutzer = nutzerAufloeser.aufloesen(authHeader);
-        RaumDaten daten = new RaumDaten(eingabe.name(), eingabe.kapazitaet(), eingabe.ausstattung(), eingabe.kategorie());
+        RaumDaten daten = new RaumDaten(eingabe.name(), eingabe.kapazitaet(), eingabe.ausstattung(), eingabe.kategorie(), eingabe.gebaeude());
         Raum raum = raumKatalogService.raumAnlegen(daten, nutzer);
         return ResponseEntity.status(HttpStatus.CREATED).body(RaumDto.von(raum));
     }
@@ -57,7 +58,7 @@ public class RaumController {
                                       @RequestBody RaumEingabeDto eingabe,
                                       @RequestHeader("Authorization") String authHeader) {
         Nutzer nutzer = nutzerAufloeser.aufloesen(authHeader);
-        RaumDaten daten = new RaumDaten(eingabe.name(), eingabe.kapazitaet(), eingabe.ausstattung(), eingabe.kategorie());
+        RaumDaten daten = new RaumDaten(eingabe.name(), eingabe.kapazitaet(), eingabe.ausstattung(), eingabe.kategorie(), eingabe.gebaeude());
         return RaumDto.von(raumKatalogService.raumAktualisieren(raumId, daten, nutzer));
     }
 

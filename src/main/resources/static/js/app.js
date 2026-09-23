@@ -581,6 +581,9 @@ function renderBookings(bookings, roomsMap) {
         </td>
         <td style="text-align: right;">
           ${b.status !== 'STORNIERT' ? `
+            <button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${b.id}', '${b.von}', '${b.bis}')" style="margin-right: 0.4rem;">
+              Ändern
+            </button>
             <button class="btn btn-danger btn-sm" onclick="cancelBooking('${b.id}')">
               Stornieren
             </button>
@@ -654,6 +657,36 @@ async function cancelBooking(bookingId) {
     loadBookings();
   } catch (err) {
     showToast("error", "Stornierung fehlgeschlagen", err.nachricht, err.status);
+  }
+}
+
+// Buchung ändern (Zeitraum verschieben, PATCH /buchungen/{buchungId})
+function openEditBookingModal(bookingId, von, bis) {
+  document.getElementById("edit-booking-id").value = bookingId;
+  document.getElementById("edit-booking-start-time").value = toLocalDatetimeString(new Date(von));
+  document.getElementById("edit-booking-end-time").value = toLocalDatetimeString(new Date(bis));
+  openModal("modal-edit-booking");
+}
+
+async function handleUpdateBookingSubmit(e) {
+  e.preventDefault();
+  const bookingId = document.getElementById("edit-booking-id").value;
+  const von = document.getElementById("edit-booking-start-time").value;
+  const bis = document.getElementById("edit-booking-end-time").value;
+
+  const payload = {
+    von: new Date(von).toISOString(),
+    bis: new Date(bis).toISOString()
+  };
+
+  try {
+    await window.api.updateBuchung(bookingId, payload);
+    closeModal("modal-edit-booking");
+    showToast("success", "Buchung geändert", "Der neue Zeitraum wurde gespeichert.", 200);
+    loadBookings();
+  } catch (err) {
+    // Z.B. 409 Konflikt oder 403 (nicht die eigene Buchung)
+    showToast("error", `Änderung fehlgeschlagen (${err.code})`, err.nachricht, err.status);
   }
 }
 
@@ -776,6 +809,7 @@ function initModals() {
   document.getElementById("form-edit-room")?.addEventListener("submit", handleEditRoomSubmit);
   document.getElementById("form-lock-room")?.addEventListener("submit", handleLockRoomSubmit);
   document.getElementById("form-create-booking")?.addEventListener("submit", handleCreateBookingSubmit);
+  document.getElementById("form-edit-booking")?.addEventListener("submit", handleUpdateBookingSubmit);
   document.getElementById("form-login")?.addEventListener("submit", handleLoginSubmit);
   document.getElementById("form-edit-roles")?.addEventListener("submit", handleEditRolesSubmit);
   document.getElementById("booking-filter-status")?.addEventListener("change", () => loadBookings());
