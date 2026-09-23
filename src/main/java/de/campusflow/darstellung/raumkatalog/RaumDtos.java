@@ -13,6 +13,6 @@ record RaumDto(String id, String name, int kapazitaet, List<String> ausstattung,
     }
 }
 
-record RaumEingabeDto(String name, int kapazitaet, List<String> ausstattung, String kategorie) {}
+record RaumEingabeDto(String name, Integer kapazitaet, List<String> ausstattung, String kategorie) {}
 
 record RaumSperrenDto(Instant von, Instant bis) {}

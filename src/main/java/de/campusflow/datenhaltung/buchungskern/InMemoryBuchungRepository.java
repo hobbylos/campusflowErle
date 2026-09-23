@@ -43,6 +43,13 @@ public class InMemoryBuchungRepository implements BuchungRepository {
     }
 
     @Override
+    public List<Buchung> findeNachRaum(String raumId) {
+        return buchungen.values().stream()
+                .filter(b -> b.getRaumId().equals(raumId))
+                .toList();
+    }
+
+    @Override
     public List<Buchung> findeAlle() {
         return new java.util.ArrayList<>(buchungen.values());
     }

@@ -9,6 +9,7 @@ public interface BuchungRepository {
     void speichern(Buchung buchung);
     Optional<Buchung> findeNachId(String buchungId);
     List<Buchung> findeNachNutzer(String nutzerId);
+    List<Buchung> findeNachRaum(String raumId);
     List<Buchung> findeAlle();
 
     /**

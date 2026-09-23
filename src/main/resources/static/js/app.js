@@ -170,10 +170,10 @@ function updateUserDisplay() {
     return;
   }
 
-  if (nameEl) nameEl.textContent = user.name;
-  const mainRole = user.rollen && user.rollen[0] ? user.rollen[0].name : "NUTZER";
+  const firstRole = user.rollen && user.rollen[0];
+  const mainRole = firstRole ? (typeof firstRole === "string" ? firstRole : firstRole.name) : "NUTZER";
   if (roleEl) roleEl.textContent = mainRole;
-  if (avatarEl) avatarEl.textContent = user.name.charAt(0);
+  if (avatarEl) avatarEl.textContent = user.name ? user.name.charAt(0) : "U";
 
   // Buttons sperren/ausblenden je nach Berechtigung (EC-16)
   const isAdmin = window.api.hasPermission("CREATE");
@@ -181,6 +181,11 @@ function updateUserDisplay() {
   adminOnlyButtons.forEach(el => {
     el.style.display = isAdmin ? "inline-flex" : "none";
   });
+
+  const createRoomBtn = document.getElementById("btn-create-room");
+  if (createRoomBtn) {
+    createRoomBtn.style.display = isAdmin ? "inline-flex" : "none";
+  }
 }
 
 async function quickSwitchUser(userId) {
@@ -234,6 +239,12 @@ function initFilters() {
 }
 
 async function loadRooms() {
+  const isAdmin = window.api.hasPermission("CREATE");
+  const createRoomBtn = document.getElementById("btn-create-room");
+  if (createRoomBtn) {
+    createRoomBtn.style.display = isAdmin ? "inline-flex" : "none";
+  }
+
   const grid = document.getElementById("rooms-grid");
   if (!grid) return;
 
@@ -388,15 +399,74 @@ async function handleCreateRoomSubmit(e) {
 
 // Raum sperren / entsperren (EC-10)
 async function toggleRoomLock(roomId, currentStatus) {
-  const newStatus = currentStatus === "AKTIV" ? "GESPERRT" : "AKTIV";
-  try {
-    await window.api.updateRaum(roomId, { status: newStatus });
-    showToast("success", newStatus === "GESPERRT" ? "Raum gesperrt" : "Raum entsperrt", `Status wurde auf '${newStatus}' geändert.`, 200);
-    loadRooms();
-  } catch (err) {
-    showToast("error", "Aktion fehlgeschlagen", err.nachricht, err.status);
+  const isCurrentlyActive = currentStatus === "AKTIV";
+  if (isCurrentlyActive) {
+    openLockRoomModal(roomId);
+  } else {
+    try {
+      await window.api.entsperreRaum(roomId);
+      showToast("success", "Raum entsperrt", "Der Raum ist ab sofort wieder für Buchungen verfügbar.", 200);
+      loadRooms();
+      loadBookings();
+    } catch (err) {
+      showToast("error", "Entsperren fehlgeschlagen", err.nachricht, err.status);
+    }
   }
 }
+
+async function openLockRoomModal(roomId) {
+  try {
+    const room = await window.api.getRaum(roomId);
+    document.getElementById("lock-room-id").value = room.id;
+    const desc = document.getElementById("lock-room-desc");
+    if (desc) {
+      desc.innerHTML = `Raum <strong>'${escapeHtml(room.name)}'</strong> für Buchungen sperren. <strong>Alle kollidierenden Buchungen im Sperrzeitraum werden automatisch storniert.</strong>`;
+    }
+    document.getElementById("lock-start-time").value = "";
+    document.getElementById("lock-end-time").value = "";
+    openModal("modal-lock-room");
+  } catch (err) {
+    showToast("error", "Fehler", err.nachricht, err.status);
+  }
+}
+
+async function submitQuickImmediateLock() {
+  const roomId = document.getElementById("lock-room-id").value;
+  try {
+    await window.api.sperreRaum(roomId);
+    closeModal("modal-lock-room");
+    showToast("warning", "Raum gesperrt", "Der Raum wurde sofort gesperrt. Alle kollidierenden Buchungen wurden automatisch storniert.", 200);
+    loadRooms();
+    loadBookings();
+  } catch (err) {
+    showToast("error", "Sperren fehlgeschlagen", err.nachricht, err.status);
+  }
+}
+
+async function handleLockRoomSubmit(e) {
+  e.preventDefault();
+  const roomId = document.getElementById("lock-room-id").value;
+  const startInput = document.getElementById("lock-start-time").value;
+  const endInput = document.getElementById("lock-end-time").value;
+
+  const von = startInput ? new Date(startInput).toISOString() : null;
+  const bis = endInput ? new Date(endInput).toISOString() : null;
+
+  try {
+    await window.api.sperreRaum(roomId, von, bis);
+    closeModal("modal-lock-room");
+    showToast("warning", "Raum gesperrt", "Der Raum wurde für den gewählten Zeitraum gesperrt. Kollidierende Buchungen wurden storniert.", 200);
+    loadRooms();
+    loadBookings();
+  } catch (err) {
+    showToast("error", "Sperren fehlgeschlagen", err.nachricht, err.status);
+  }
+}
+
+// Global verfügbar machen
+window.openLockRoomModal = openLockRoomModal;
+window.submitQuickImmediateLock = submitQuickImmediateLock;
+window.handleLockRoomSubmit = handleLockRoomSubmit;
 
 // Raum bearbeiten (EC-9)
 async function openEditRoomModal(roomId) {
@@ -418,7 +488,8 @@ async function handleEditRoomSubmit(e) {
   e.preventDefault();
   const roomId = document.getElementById("edit-room-id").value;
   const name = document.getElementById("edit-room-name").value;
-  const kapazitaet = Number(document.getElementById("edit-room-capacity").value);
+  const kapazitaetVal = document.getElementById("edit-room-capacity").value;
+  const kapazitaet = kapazitaetVal !== "" ? Number(kapazitaetVal) : undefined;
   const kategorie = document.getElementById("edit-room-category").value;
   const gebaeude = document.getElementById("edit-room-building").value;
   const ausstattung = document.getElementById("edit-room-equipment").value
@@ -430,21 +501,21 @@ async function handleEditRoomSubmit(e) {
     showToast("success", "Raum aktualisiert", `Änderungen für '${name}' wurden übernommen.`, 200);
     loadRooms();
   } catch (err) {
-    showToast("error", "Aktualisierung fehlgeschlagen", err.nachricht, err.status);
+    showToast("error", `Fehler: ${err.code || 'Ungültige Eingabe'}`, err.nachricht, err.status);
   }
 }
 
 // Raum löschen (DELETE /api/v1/raeume/{id})
 async function confirmDeleteRoom(roomId, roomName) {
-  if (!confirm(`Soll der Raum '${roomName}' wirklich gelöscht werden?`)) return;
+  if (!confirm(`Soll der Raum '${roomName}' wirklich gelöscht werden?\n\nHinweis: Alle zugehörigen Buchungen für diesen Raum werden automatisch storniert.`)) return;
 
   try {
     await window.api.deleteRaum(roomId);
-    showToast("success", "Raum gelöscht", `'${roomName}' wurde erfolgreich entfernt.`, 204);
+    showToast("success", "Raum gelöscht", `'${roomName}' und zugehörige Buchungen wurden storniert bzw. entfernt.`, 204);
     loadRooms();
+    loadBookings();
   } catch (err) {
-    // Falls 409 Konflikt (noch Buchungen vorhanden)
-    showToast("error", `Löschen blockiert (${err.code})`, err.nachricht, err.status);
+    showToast("error", `Löschen fehlgeschlagen (${err.code})`, err.nachricht, err.status);
   }
 }
 
@@ -703,6 +774,7 @@ function initModals() {
   document.getElementById("form-gate-login")?.addEventListener("submit", handleGateLogin);
   document.getElementById("form-create-room")?.addEventListener("submit", handleCreateRoomSubmit);
   document.getElementById("form-edit-room")?.addEventListener("submit", handleEditRoomSubmit);
+  document.getElementById("form-lock-room")?.addEventListener("submit", handleLockRoomSubmit);
   document.getElementById("form-create-booking")?.addEventListener("submit", handleCreateBookingSubmit);
   document.getElementById("form-login")?.addEventListener("submit", handleLoginSubmit);
   document.getElementById("form-edit-roles")?.addEventListener("submit", handleEditRolesSubmit);

@@ -36,7 +36,7 @@ public class Raum {
             throw new IllegalArgumentException("Name darf nicht leer sein");
         }
         if (kapazitaet <= 0) {
-            throw new IllegalArgumentException("Kapazitaet muss > 0 sein");
+            throw new IllegalArgumentException("Invariante verletzt: Kapazitaet muss mindestens 1 sein (eingegeben: " + kapazitaet + ")");
         }
     }
 
@@ -48,20 +48,36 @@ public class Raum {
         this.kategorie = kategorie;
     }
 
-    /** EC-10: Raum fuer einen definierten Zeitraum sperren. */
+    /** EC-10: Raum sperren (optionaler Zeitraum, Standard: sofort & unbefristet). */
     public void sperren(Instant von, Instant bis) {
-        if (von == null || bis == null || !von.isBefore(bis)) {
-            throw new IllegalArgumentException("Sperrzeitraum ungueltig");
+        Instant start = (von != null) ? von : Instant.now();
+        Instant ende = (bis != null) ? bis : start.plus(3650, java.time.temporal.ChronoUnit.DAYS);
+        if (!start.isBefore(ende)) {
+            throw new IllegalArgumentException("Sperrzeitraum ungueltig: Start muss vor Ende liegen");
         }
         this.status = RaumStatus.GESPERRT;
-        this.sperrVon = von;
-        this.sperrBis = bis;
+        this.sperrVon = start;
+        this.sperrBis = ende;
+    }
+
+    /** Raum wieder freigeben (entsperren). */
+    public void entsperren() {
+        this.status = RaumStatus.AKTIV;
+        this.sperrVon = null;
+        this.sperrBis = null;
     }
 
     public boolean istGesperrtAm(Instant zeitpunkt) {
-        return status == RaumStatus.GESPERRT
-                && sperrVon != null && sperrBis != null
-                && !zeitpunkt.isBefore(sperrVon) && zeitpunkt.isBefore(sperrBis);
+        if (status != RaumStatus.GESPERRT) {
+            return false;
+        }
+        if (sperrVon == null && sperrBis == null) {
+            return true;
+        }
+        if (sperrVon != null && sperrBis != null) {
+            return !zeitpunkt.isBefore(sperrVon) && zeitpunkt.isBefore(sperrBis);
+        }
+        return true;
     }
 
     public String getId() { return id; }

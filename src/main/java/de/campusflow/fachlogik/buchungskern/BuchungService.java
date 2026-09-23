@@ -141,6 +141,34 @@ public class BuchungService {
                 .orElseThrow(() -> new NichtGefundenFehler("Buchung nicht gefunden: " + buchungId));
     }
 
+    /**
+     * Reagiert auf die Sperrung eines Raums (EC-10):
+     * Automatische Stornierung aller aktiven Buchungen im betroffenen Sperrzeitraum.
+     */
+    @org.springframework.context.event.EventListener
+    public void onRaumGesperrt(de.campusflow.fachlogik.raumkatalog.RaumGesperrtEvent event) {
+        List<Buchung> ueberlappende = buchungRepository.findeUeberlappende(event.raumId(), event.von(), event.bis());
+        for (Buchung b : ueberlappende) {
+            b.stornieren();
+            buchungRepository.speichern(b);
+            bestaetigungsVersender.bestaetigungSenden(b);
+        }
+    }
+
+    /**
+     * Reagiert auf das Loeschen eines Raums:
+     * Automatische Stornierung saemtlicher Buchungen fuer diesen Raum.
+     */
+    @org.springframework.context.event.EventListener
+    public void onRaumGeloescht(de.campusflow.fachlogik.raumkatalog.RaumGeloeschtEvent event) {
+        List<Buchung> raumBuchungen = buchungRepository.findeNachRaum(event.raumId());
+        for (Buchung b : raumBuchungen) {
+            b.stornieren();
+            buchungRepository.speichern(b);
+            bestaetigungsVersender.bestaetigungSenden(b);
+        }
+    }
+
     private boolean istEigentuemerOderAdmin(Buchung buchung, Nutzer nutzer) {
         return buchung.getNutzerId().equals(nutzer.getId()) || nutzer.getRollen().contains(Rolle.ADMIN);
     }

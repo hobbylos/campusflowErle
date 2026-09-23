@@ -195,10 +195,22 @@ class CampusFlowApiClient {
    */
   async updateRaum(raumId, raumEingabe) {
     if (this.mode === "live") {
+      let payload = { ...raumEingabe };
+      if (!payload.name || payload.kapazitaet === undefined || payload.kapazitaet === null) {
+        try {
+          const current = await this.getRaum(raumId);
+          payload.name = payload.name || current.name;
+          if (payload.kapazitaet === undefined || payload.kapazitaet === null) {
+            payload.kapazitaet = current.kapazitaet;
+          }
+          payload.kategorie = payload.kategorie || current.kategorie;
+          payload.ausstattung = payload.ausstattung || current.ausstattung || [];
+        } catch (e) {}
+      }
       const res = await fetch(`${this.baseUrl}/raeume/${encodeURIComponent(raumId)}`, {
         method: "PUT",
         headers: this.getHeaders(),
-        body: JSON.stringify(raumEingabe)
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw await this.handleError(res);
       return await res.json();
@@ -223,11 +235,11 @@ class CampusFlowApiClient {
       };
     }
 
-    if (raumEingabe.kapazitaet !== undefined && raumEingabe.kapazitaet <= 0) {
+    if (raumEingabe.kapazitaet !== undefined && raumEingabe.kapazitaet !== null && Number(raumEingabe.kapazitaet) <= 0) {
       throw {
         status: 422,
         code: "INVARIANTE_VERLETZT",
-        nachricht: "Kapazität muss mindestens 1 sein."
+        nachricht: "Invariante verletzt: Kapazität muss mindestens 1 sein (eingegeben: " + raumEingabe.kapazitaet + ")."
       };
     }
 
@@ -248,7 +260,107 @@ class CampusFlowApiClient {
   }
 
   /**
+   * POST /api/v1/raeume/{raumId}/sperren
+   */
+  async sperreRaum(raumId, von = null, bis = null) {
+    if (this.mode === "live") {
+      const body = (von || bis) ? { von, bis } : {};
+      const res = await fetch(`${this.baseUrl}/raeume/${encodeURIComponent(raumId)}/sperren`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw await this.handleError(res);
+      return await res.json();
+    }
+
+    await this.delay(60);
+    if (!this.hasPermission("UPDATE")) {
+      throw {
+        status: 403,
+        code: "BERECHTIGUNG_VERWEIGERT",
+        nachricht: "Zugriff verweigert: Nur Administratoren dürfen Räume sperren."
+      };
+    }
+
+    const db = getMockStorage();
+    const room = db.rooms.find(r => r.id === raumId);
+    if (!room) {
+      throw {
+        status: 404,
+        code: "ROOM_NOT_FOUND",
+        nachricht: `Raum mit ID '${raumId}' wurde nicht gefunden.`
+      };
+    }
+
+    room.status = "GESPERRT";
+    room.sperrVon = von || new Date().toISOString();
+    room.sperrBis = bis || new Date(Date.now() + 3650 * 86400000).toISOString();
+
+    // Automatische Stornierung aller aktiven Buchungen im Sperrzeitraum (EC-10)
+    let canceledCount = 0;
+    const lockStart = new Date(room.sperrVon);
+    const lockEnd = new Date(room.sperrBis);
+
+    db.bookings.forEach(b => {
+      if (b.raumId === raumId && b.status !== "STORNIERT") {
+        const bStart = new Date(b.von);
+        const bEnd = new Date(b.bis);
+        if (lockStart < bEnd && lockEnd > bStart) {
+          b.status = "STORNIERT";
+          canceledCount++;
+        }
+      }
+    });
+
+    saveMockStorage(db);
+    return { ...room, canceledBookings: canceledCount };
+  }
+
+  /**
+   * POST /api/v1/raeume/{raumId}/entsperren
+   */
+  async entsperreRaum(raumId) {
+    if (this.mode === "live") {
+      try {
+        const res = await fetch(`${this.baseUrl}/raeume/${encodeURIComponent(raumId)}/entsperren`, {
+          method: "POST",
+          headers: this.getHeaders()
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {}
+
+      // Fallback für vorherige Backend-Instanz
+      const currentRoom = await this.getRaum(raumId);
+      return await this.updateRaum(raumId, {
+        name: currentRoom.name,
+        kapazitaet: currentRoom.kapazitaet,
+        kategorie: currentRoom.kategorie,
+        status: "AKTIV"
+      });
+    }
+
+    await this.delay(60);
+    const db = getMockStorage();
+    const room = db.rooms.find(r => r.id === raumId);
+    if (!room) {
+      throw {
+        status: 404,
+        code: "ROOM_NOT_FOUND",
+        nachricht: `Raum mit ID '${raumId}' wurde nicht gefunden.`
+      };
+    }
+
+    room.status = "AKTIV";
+    room.sperrVon = null;
+    room.sperrBis = null;
+    saveMockStorage(db);
+    return room;
+  }
+
+  /**
    * DELETE /api/v1/raeume/{raumId}
+   * Buchungen werden automatisch mitstorniert!
    */
   async deleteRaum(raumId) {
     if (this.mode === "live") {
@@ -279,15 +391,12 @@ class CampusFlowApiClient {
       };
     }
 
-    // Konfliktprüfung nach OpenAPI: Raum kann nicht gelöscht werden, wenn aktive Buchungen bestehen (409)
-    const activeBookings = db.bookings.filter(b => b.raumId === raumId && (b.status === "BESTAETIGT" || b.status === "GEPLANT"));
-    if (activeBookings.length > 0) {
-      throw {
-        status: 409,
-        code: "RAUM_IN_BENUTZUNG",
-        nachricht: `Raum '${room.name}' kann nicht gelöscht werden, da noch ${activeBookings.length} aktive Buchung(en) bestehen!`
-      };
-    }
+    // Automatische Stornierung aller Buchungen für den gelöschten Raum
+    db.bookings.forEach(b => {
+      if (b.raumId === raumId) {
+        b.status = "STORNIERT";
+      }
+    });
 
     db.rooms = db.rooms.filter(r => r.id !== raumId);
     saveMockStorage(db);

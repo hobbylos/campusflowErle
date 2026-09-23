@@ -24,13 +24,16 @@ public class RaumKatalogService {
     private final RaumRepository raumRepository;
     private final FacilityAdapter facilityAdapter;
     private final BerechtigungsPruefer berechtigungsPruefer;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public RaumKatalogService(RaumRepository raumRepository,
                                FacilityAdapter facilityAdapter,
-                               BerechtigungsPruefer berechtigungsPruefer) {
+                               BerechtigungsPruefer berechtigungsPruefer,
+                               org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.raumRepository = raumRepository;
         this.facilityAdapter = facilityAdapter;
         this.berechtigungsPruefer = berechtigungsPruefer;
+        this.eventPublisher = eventPublisher;
     }
 
     /** EC-8 */
@@ -38,7 +41,8 @@ public class RaumKatalogService {
         if (!berechtigungsPruefer.darf(nutzer, Aktion.RAUM_ANLEGEN)) {
             throw new BerechtigungsFehler("Keine Berechtigung zum Anlegen eines Raums");
         }
-        Raum raum = new Raum(UUID.randomUUID().toString(), daten.name(), daten.kapazitaet(),
+        int kapazitaet = (daten.kapazitaet() != null) ? daten.kapazitaet() : 0;
+        Raum raum = new Raum(UUID.randomUUID().toString(), daten.name(), kapazitaet,
                 daten.ausstattung(), daten.kategorie());
         raumRepository.speichern(raum);
         facilityAdapter.raumErstellt(raum);
@@ -52,13 +56,17 @@ public class RaumKatalogService {
         }
         Raum raum = raumRepository.findeNachId(raumId)
                 .orElseThrow(() -> new NichtGefundenFehler("Raum nicht gefunden: " + raumId));
-        raum.aktualisiere(daten.name(), daten.kapazitaet(), daten.ausstattung(), daten.kategorie());
+        String neuerName = (daten.name() != null && !daten.name().isBlank()) ? daten.name() : raum.getName();
+        int neueKapazitaet = (daten.kapazitaet() != null) ? daten.kapazitaet() : raum.getKapazitaet();
+        List<String> neueAusstattung = daten.ausstattung() != null ? daten.ausstattung() : raum.getAusstattung();
+        String neueKategorie = daten.kategorie() != null ? daten.kategorie() : raum.getKategorie();
+        raum.aktualisiere(neuerName, neueKapazitaet, neueAusstattung, neueKategorie);
         raumRepository.speichern(raum);
         facilityAdapter.raumAktualisiert(raum);
         return raum;
     }
 
-    /** EC-10 */
+    /** EC-10: Raum sperren und Event fuer automatische Stornierung publizieren. */
     public Raum raumSperren(String raumId, Instant von, Instant bis, Nutzer nutzer) {
         if (!berechtigungsPruefer.darf(nutzer, Aktion.RAUM_SPERREN)) {
             throw new BerechtigungsFehler("Keine Berechtigung zum Sperren eines Raums");
@@ -68,6 +76,22 @@ public class RaumKatalogService {
         raum.sperren(von, bis);
         raumRepository.speichern(raum);
         facilityAdapter.raumGesperrt(raum);
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new RaumGesperrtEvent(raumId, raum.getSperrVon(), raum.getSperrBis()));
+        }
+        return raum;
+    }
+
+    /** EC-10: Raum entsperren. */
+    public Raum raumEntsperren(String raumId, Nutzer nutzer) {
+        if (!berechtigungsPruefer.darf(nutzer, Aktion.RAUM_SPERREN)) {
+            throw new BerechtigungsFehler("Keine Berechtigung zum Entsperren eines Raums");
+        }
+        Raum raum = raumRepository.findeNachId(raumId)
+                .orElseThrow(() -> new NichtGefundenFehler("Raum nicht gefunden: " + raumId));
+        raum.entsperren();
+        raumRepository.speichern(raum);
+        facilityAdapter.raumAktualisiert(raum);
         return raum;
     }
 
@@ -84,7 +108,7 @@ public class RaumKatalogService {
         return raeume;
     }
 
-    /** OpenAPI DELETE /raeume/{raumId} */
+    /** OpenAPI DELETE /raeume/{raumId}: Raum loeschen und zugehoerige Buchungen automatisch bereinigen. */
     public void raumLoeschen(String raumId, Nutzer nutzer) {
         if (!berechtigungsPruefer.darf(nutzer, Aktion.RAUM_ANLEGEN)) {
             throw new BerechtigungsFehler("Keine Berechtigung zum Loeschen eines Raums");
@@ -92,5 +116,8 @@ public class RaumKatalogService {
         Raum raum = raumRepository.findeNachId(raumId)
                 .orElseThrow(() -> new NichtGefundenFehler("Raum nicht gefunden: " + raumId));
         raumRepository.loeschen(raumId);
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new RaumGeloeschtEvent(raumId));
+        }
     }
 }

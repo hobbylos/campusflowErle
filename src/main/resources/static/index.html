@@ -146,7 +146,7 @@
           <p class="section-subtitle">Übersicht, Filterung und Verwaltung aller Campus-Räume (EC-2 / OpenAPI)</p>
         </div>
         <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-primary" onclick="openModal('modal-create-room')">
+          <button id="btn-create-room" class="btn btn-primary admin-only" onclick="openModal('modal-create-room')">
             + Neuer Raum anlegen
           </button>
         </div>
@@ -513,6 +513,44 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Abbrechen</button>
           <button type="submit" class="btn btn-primary">Änderungen speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Raum sperren mit optionalem Zeitraum (EC-10) -->
+  <div id="modal-lock-room" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">🔒 Raum sperren</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-lock-room')">&times;</button>
+      </div>
+      <form id="form-lock-room">
+        <input type="hidden" id="lock-room-id">
+        <div class="modal-body">
+          <p id="lock-room-desc" style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Raum für Buchungen sperren. <strong>Alle kollidierenden Buchungen im Sperrzeitraum werden automatisch storniert.</strong>
+          </p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="lock-start-time">Sperrung von</label>
+              <input type="datetime-local" id="lock-start-time" class="form-input">
+              <span class="form-hint">Leer lassen für: Sofort</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="lock-end-time">Sperrung bis</label>
+              <input type="datetime-local" id="lock-end-time" class="form-input">
+              <span class="form-hint">Leer lassen für: Unbefristet</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-lock-room')">Abbrechen</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-warning" onclick="submitQuickImmediateLock()">⚡ Sofort sperren</button>
+            <button type="submit" class="btn btn-danger">🔒 Zeitraum sperren</button>
+          </div>
         </div>
       </form>
     </div>

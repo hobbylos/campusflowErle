@@ -6,6 +6,7 @@ import de.campusflow.fachlogik.raumkatalog.RaumDaten;
 import de.campusflow.fachlogik.raumkatalog.RaumFilter;
 import de.campusflow.fachlogik.raumkatalog.RaumKatalogService;
 import de.campusflow.fachlogik.zugangskontrolle.Nutzer;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -62,10 +63,19 @@ public class RaumController {
 
     @PostMapping("/{raumId}/sperren")
     public RaumDto raumSperren(@PathVariable String raumId,
-                                @RequestBody RaumSperrenDto sperrung,
+                                @RequestBody(required = false) RaumSperrenDto sperrung,
                                 @RequestHeader("Authorization") String authHeader) {
         Nutzer nutzer = nutzerAufloeser.aufloesen(authHeader);
-        return RaumDto.von(raumKatalogService.raumSperren(raumId, sperrung.von(), sperrung.bis(), nutzer));
+        Instant von = (sperrung != null) ? sperrung.von() : null;
+        Instant bis = (sperrung != null) ? sperrung.bis() : null;
+        return RaumDto.von(raumKatalogService.raumSperren(raumId, von, bis, nutzer));
+    }
+
+    @PostMapping("/{raumId}/entsperren")
+    public RaumDto raumEntsperren(@PathVariable String raumId,
+                                  @RequestHeader("Authorization") String authHeader) {
+        Nutzer nutzer = nutzerAufloeser.aufloesen(authHeader);
+        return RaumDto.von(raumKatalogService.raumEntsperren(raumId, nutzer));
     }
 
     @DeleteMapping("/{raumId}")
