@@ -1,7 +1,7 @@
 package de.campusflow.fachlogik.zugangskontrolle;
 
 import de.campusflow.datenhaltung.zugangskontrolle.NutzerRepository;
-import de.campusflow.fachlogik.gemeinsam.BerechtigungsFehler;
+import de.campusflow.fachlogik.gemeinsam.AuthentifizierungsFehler;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -17,6 +17,10 @@ import org.springframework.stereotype.Service;
  * das eigentliche Login-Protokoll ist laut EC-4 noch offen (SAML/OAuth/LDAP).
  * Sobald das entschieden ist, wird hier nur die pruefeZugangsdaten-Methode
  * ausgetauscht, der Rest (Tokenausgabe) bleibt gleich.
+ *
+ * Ein fehlgeschlagener Login ist ein Authentifizierungsproblem (401), keine
+ * Berechtigungsfrage (403) -- daher AuthentifizierungsFehler statt
+ * BerechtigungsFehler, passend zum openapi-Vertrag.
  */
 @Service
 public class AuthService {
@@ -32,11 +36,11 @@ public class AuthService {
 
     public LoginErgebnis login(String uniKennung, String credential) {
         Nutzer nutzer = nutzerRepository.findeNachUniKennung(uniKennung)
-                .orElseThrow(() -> new BerechtigungsFehler("Login fehlgeschlagen"));
+                .orElseThrow(() -> new AuthentifizierungsFehler("Login fehlgeschlagen"));
 
         // TODO: echte Pruefung sobald Uni-Login-Protokoll feststeht (EC-4)
         if (credential == null || credential.isBlank()) {
-            throw new BerechtigungsFehler("Login fehlgeschlagen");
+            throw new AuthentifizierungsFehler("Login fehlgeschlagen");
         }
 
         String token = UUID.randomUUID().toString();

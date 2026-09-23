@@ -1,5 +1,6 @@
 package de.campusflow.darstellung.gemeinsam;
 
+import de.campusflow.fachlogik.gemeinsam.AuthentifizierungsFehler;
 import de.campusflow.fachlogik.gemeinsam.BerechtigungsFehler;
 import de.campusflow.fachlogik.gemeinsam.KonfliktFehler;
 import de.campusflow.fachlogik.gemeinsam.NichtGefundenFehler;
@@ -10,11 +11,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * Uebersetzt Fachlogik-Exceptions zentral in HTTP-Statuscodes, passend zum
- * OpenAPI-Vertrag (403/404/409). Gehoert bewusst zur Darstellungsschicht:
+ * OpenAPI-Vertrag (401/403/404/409). Gehoert bewusst zur Darstellungsschicht:
  * HTTP-Statuscodes sind ein Praesentationsdetail, keine Fachlogik.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AuthentifizierungsFehler.class)
+    public ResponseEntity<FehlerDto> handleAuthentifizierung(AuthentifizierungsFehler e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new FehlerDto("NICHT_AUTHENTIFIZIERT", e.getMessage()));
+    }
 
     @ExceptionHandler(BerechtigungsFehler.class)
     public ResponseEntity<FehlerDto> handleBerechtigung(BerechtigungsFehler e) {
