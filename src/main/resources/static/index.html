@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusFlow — Raumverwaltung & Buchung</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ==========================================
+       Login-Screen vor dem Dashboard
+       ========================================== -->
+  <div id="auth-gate-screen" class="login-gate">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-brand-icon">CF</div>
+        <h1 class="login-title">Campus<span>Flow</span></h1>
+        <p class="login-subtitle">Zentrales Raum- &amp; Buchungsmanagement</p>
+      </div>
+
+      <form id="form-gate-login" class="login-form">
+        <div class="form-group">
+          <label class="form-label" for="gate-username">Uni-Kennung <span class="required">*</span></label>
+          <input type="text" id="gate-username" class="form-input" placeholder="admin / dozent / student" required autofocus>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="gate-password">Passwort <span class="required">*</span></label>
+          <input type="password" id="gate-password" class="form-input" placeholder="Passwort eingeben" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.25rem; padding: 0.75rem;">
+          🔐 Anmelden
+        </button>
+      </form>
+
+      <div class="login-divider">
+        <span>Schnellauswahl für Präsentation &amp; Tests</span>
+      </div>
+
+      <div class="quick-profiles-grid">
+        <button type="button" class="quick-profile-btn" onclick="quickLoginAs('admin', 'admin')">
+          <div class="profile-avatar" style="background: linear-gradient(135deg, #00d2ff, #0284c7);">L</div>
+          <div class="profile-info">
+            <div class="profile-name">Lukas (Admin)</div>
+            <div class="profile-role">Vollzugriff (Räume &amp; Rollen) &bull; Kennung: admin</div>
+          </div>
+        </button>
+
+        <button type="button" class="quick-profile-btn" onclick="quickLoginAs('dozent', 'pass')">
+          <div class="profile-avatar" style="background: linear-gradient(135deg, #10d964, #059669);">P</div>
+          <div class="profile-info">
+            <div class="profile-name">Prof. Dr. Schneider (Dozent)</div>
+            <div class="profile-role">Buchungsrechte &bull; Kennung: dozent</div>
+          </div>
+        </button>
+
+        <button type="button" class="quick-profile-btn" onclick="quickLoginAs('student', 'pass')">
+          <div class="profile-avatar" style="background: linear-gradient(135deg, #f59e0b, #d97706);">A</div>
+          <div class="profile-info">
+            <div class="profile-name">Anna Müller (Studentin)</div>
+            <div class="profile-role">Eingeschränkte Rechte &bull; Kennung: student</div>
+          </div>
+        </button>
+      </div>
+
+      <div class="login-footer-hint">
+        Tipp: Falsches Passwort eingeben testet den Negativfall <strong>HTTP 401</strong>.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Hauptanwendung (Dashboard)
+       ========================================== -->
+  <div id="app-container" style="display: flex; flex-direction: column; min-height: 100vh;">
+
+    <!-- ==========================================
+         Header & Navigation
+         ========================================== -->
+    <header class="app-header">
+      <div class="header-container">
+      
+      <!-- Logo & Titel (Doppelklick schaltet Demo-Helfer um) -->
+      <a href="#" class="brand" onclick="switchView('view-rooms'); return false;" ondblclick="toggleDemoHelpers()" title="Doppelklick schaltet Demo-Helfer ein/aus">
+        <div class="brand-icon">CF</div>
+        <div class="brand-name">Campus<span>Flow</span></div>
+      </a>
+
+      <!-- Navigation Tabs (Epics 2, 3, 4 + Präsentation) -->
+      <nav class="nav-tabs" role="tablist">
+        <button class="nav-tab-btn active" data-target="view-rooms">
+          🏢 Räume <span style="font-size: 0.72rem; opacity: 0.7;">(EC-2)</span>
+        </button>
+        <button class="nav-tab-btn" data-target="view-bookings">
+          📅 Buchungen <span style="font-size: 0.72rem; opacity: 0.7;">(EC-3)</span>
+        </button>
+        <button class="nav-tab-btn" data-target="view-auth">
+          👥 Rollen & Rechte <span style="font-size: 0.72rem; opacity: 0.7;">(EC-4)</span>
+        </button>
+        <button id="nav-tab-demo" class="nav-tab-btn" data-target="view-presentation" style="color: var(--neon-cyan-dark); font-weight: 700;">
+          🎯 Live-Demo & Leitfaden
+        </button>
+      </nav>
+
+      <!-- Rechter Header: API-Status & Benutzer -->
+      <div class="header-right">
+        <!-- API Modus Badge (OpenAPI Mock vs Live) -->
+        <div id="mode-badge" class="mode-badge" title="Status der REST API Verbindung">
+          <span class="mode-dot"></span>
+          Demo-Modus
+        </div>
+
+        <!-- Aktiver Benutzer (Klick zum Wechseln) -->
+        <div id="user-pill" class="user-pill" title="Benutzer oder Rolle wechseln">
+          <div id="current-user-avatar" class="user-avatar">L</div>
+          <div class="user-info">
+            <span id="current-user-name" class="user-name">Lukas (Admin)</span>
+            <span id="current-user-role" class="user-role-badge">ADMIN</span>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary btn-sm" onclick="handleSwitchUser()" title="Benutzer wechseln">
+          🔄 Benutzer wechseln
+        </button>
+
+        <button class="btn btn-secondary btn-sm" style="color: var(--neon-pink-dark); border-color: rgba(255, 0, 127, 0.25);" onclick="handleLogout()" title="Abmelden">
+          🚪 Abmelden
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==========================================
+       Hauptinhalt (Views)
+       ========================================== -->
+  <main class="app-main">
+
+    <!-- VIEW 1: Raumkatalog (Epic 2) -->
+    <section id="view-rooms" class="tab-view active">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">🏢 Raumkatalog</h1>
+          <p class="section-subtitle">Übersicht, Filterung und Verwaltung aller Campus-Räume (EC-2 / OpenAPI)</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-primary" onclick="openModal('modal-create-room')">
+            + Neuer Raum anlegen
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter- & Suchleiste -->
+      <div class="filter-bar">
+        <div class="search-input-group">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="room-search-input" placeholder="Raum suchen (Name, Ausstattung)...">
+        </div>
+
+        <select id="room-filter-building" class="filter-select">
+          <option value="">Alle Gebäude</option>
+          <option value="Haus A">Haus A</option>
+          <option value="Haus B">Haus B</option>
+          <option value="Haus C">Haus C</option>
+        </select>
+
+        <select id="room-filter-category" class="filter-select">
+          <option value="">Alle Kategorien</option>
+          <option value="Hörsaal">Hörsaal</option>
+          <option value="Seminarraum">Seminarraum</option>
+          <option value="Labor">Labor / PC-Pool</option>
+          <option value="Besprechung">Besprechungsraum</option>
+          <option value="Projektraum">Projektraum</option>
+        </select>
+
+        <select id="room-filter-capacity" class="filter-select">
+          <option value="">Jede Kapazität</option>
+          <option value="15">Mind. 15 Plätze</option>
+          <option value="30">Mind. 30 Plätze</option>
+          <option value="50">Mind. 50 Plätze</option>
+          <option value="100">Mind. 100 Plätze</option>
+        </select>
+      </div>
+
+      <!-- Karten-Raster für Räume -->
+      <div id="rooms-grid" class="cards-grid">
+        <!-- Dynamisch via app.js -->
+      </div>
+    </section>
+
+    <!-- VIEW 2: Buchungsprozess (Epic 3) -->
+    <section id="view-bookings" class="tab-view">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">📅 Buchungsverwaltung</h1>
+          <p class="section-subtitle">Reservierungen, Terminübersicht und automatische Konfliktprüfung (EC-3)</p>
+        </div>
+        <button class="btn btn-primary" onclick="openBookingModalForRoom()">
+          + Raum jetzt buchen
+        </button>
+      </div>
+
+      <!-- Statusfilter -->
+      <div style="margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-secondary);">Statusfilter:</span>
+          <select id="booking-filter-status" class="filter-select" style="min-width: 160px; padding: 0.45rem 0.85rem;">
+            <option value="ALLE">Alle Status anzeigen</option>
+            <option value="BESTAETIGT">Nur Bestätigt</option>
+            <option value="GEPLANT">Nur Geplant</option>
+            <option value="STORNIERT">Nur Storniert</option>
+          </select>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Konflikte werden bei Buchungsanlage sofort mit <strong>HTTP 409</strong> abgewiesen.
+        </div>
+      </div>
+
+      <!-- Buchungstabelle -->
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Raum</th>
+                <th>Zeitraum (Von - Bis)</th>
+                <th>Zweck</th>
+                <th>Nutzer-ID</th>
+                <th>Status</th>
+                <th style="text-align: right;">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-table-body">
+              <!-- Dynamisch via app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: Rollen & Zugangskontrolle (Epic 4) -->
+    <section id="view-auth" class="tab-view">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">👥 Rollen & Berechtigungen</h1>
+          <p class="section-subtitle">Authentifizierung über Uni-Account und rollenbasierte Rechte (EC-4 / OpenAPI)</p>
+        </div>
+      </div>
+
+      <!-- Schnell-Login & Test-Nutzer Karten -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+        
+        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.35rem; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.25rem;">🔐</span>
+            <h3 style="font-size: 1.05rem; font-weight: 800;">Uni-Login (/api/v1/auth/login)</h3>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Testet den echten OpenAPI-Login-Endpunkt mit Uni-Kennung und Passwort inklusive Token-Ausstellung und 401-Fehlerfall.
+          </p>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-login')">
+            Login-Maske öffnen
+          </button>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.35rem; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.25rem;">🛡️</span>
+            <h3 style="font-size: 1.05rem; font-weight: 800;">Rollenkonzept (EC-16)</h3>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+            <strong>ADMIN</strong>: Darf Räume erstellen, bearbeiten, sperren & Rollen vergeben.<br>
+            <strong>STUDENT / DOZENT</strong>: Darf Räume einsehen & buchen. Administrative Aktionen lösen sofort <strong>HTTP 403 Forbidden</strong> aus!
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Nutzer- und Rollenliste -->
+      <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem;">Registrierte Benutzer & Berechtigungen</h2>
+      <div id="roles-users-list" style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Dynamisch via app.js -->
+      </div>
+    </section>
+
+    <!-- VIEW 4: Live-Demo Leitfaden & Prüfungs-Checkliste -->
+    <section id="view-presentation" class="tab-view">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">🎯 Prüfungs-Leitfaden: Live-Demo</h1>
+          <p class="section-subtitle">Schritt-für-Schritt Ablauf für die Präsentation gemäß Vorgabenkatalog</p>
+        </div>
+      </div>
+
+      <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem; color: var(--neon-cyan-dark);">
+          Ablaufplan vor dem Publikum (ca. 3–5 Minuten)
+        </h2>
+
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-card-subtle); display: flex; align-items: center; justify-content: center; font-weight: 800;">1</div>
+            <div>
+              <div style="font-weight: 700;">Live-Start der Anwendung vor Publikum</div>
+              <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Terminal öffnen, <code>cmd.exe /c "set JAVA_HOME=C:\Program Files\Java\jdk-24.0.2&& mvnw.cmd spring-boot:run"</code> ausführen. Zeigen, wie Spring Boot startet und unter <code>localhost:8080</code> erreichbar ist.
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--neon-lime-bg); color: var(--neon-lime-dark); display: flex; align-items: center; justify-content: center; font-weight: 800;">2</div>
+            <div>
+              <div style="font-weight: 700;">Positivfall vorführen (Raum anlegen / buchen)</div>
+              <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Neuen Raum („Audimax Erle C01“) mit 150 Plätzen anlegen. Sichtbare Reaktion: Grüner Banner (<strong>HTTP 201 Created</strong>), Raum erscheint sofort in der Liste.
+              </div>
+              <button class="btn btn-success btn-sm" style="margin-top: 0.5rem;" onclick="runPositiveDemo()">
+                ▶ Positivfall jetzt vorbereiten
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--neon-pink-bg); color: var(--neon-pink-dark); display: flex; align-items: center; justify-content: center; font-weight: 800;">3</div>
+            <div>
+              <div style="font-weight: 700;">Negativfall 1: Ungültige Eingabe (Validierungsfehler 400 / 422)</div>
+              <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Raum mit Kapazität <code>-5</code> absenden. Sichtbare Reaktion: Roter Fehler-Toast („Invariante verletzt: Kapazität muss mindestens 1 sein“).
+              </div>
+              <button class="btn btn-danger btn-sm" style="margin-top: 0.5rem;" onclick="runNegativeInputDemo()">
+                ▶ Negativfall 1 vorbereiten
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--neon-pink-bg); color: var(--neon-pink-dark); display: flex; align-items: center; justify-content: center; font-weight: 800;">4</div>
+            <div>
+              <div style="font-weight: 700;">Negativfall 2: Fachlicher Konflikt / Doppelbuchung (409 Conflict)</div>
+              <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Buchungsversuch für einen Raum in einem bereits belegten Zeitraum. Sichtbare Reaktion: Roter Konflikt-Banner („Doppelbuchung erkannt: Raum bereits belegt“).
+              </div>
+              <button class="btn btn-danger btn-sm" style="margin-top: 0.5rem;" onclick="runNegativeConflictDemo()">
+                ▶ Negativfall 2 vorbereiten
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--neon-amber-bg); color: var(--neon-amber-dark); display: flex; align-items: center; justify-content: center; font-weight: 800;">5</div>
+            <div>
+              <div style="font-weight: 700;">Negativfall 3: Fehlende Berechtigung (403 Forbidden)</div>
+              <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Als Studentin Anna anmelden und versuchen, einen Raum zu löschen oder zu sperren. Sichtbare Reaktion: 403-Fehlermeldung.
+              </div>
+              <button class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;" onclick="runNegativeForbiddenDemo()">
+                ▶ Negativfall 3 auslösen
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--neon-cyan-bg); color: var(--neon-cyan-dark); display: flex; align-items: center; justify-content: center; font-weight: 800;">6</div>
+            <div>
+              <div style="font-weight: 700;">Live-Ausführung des Unit-Tests in der IDE / Konsole</div>
+              <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Test für Negativfall ausführen: <code>RoomCatalogServiceTest.addRoom_wirftException_wennNichtBerechtigt()</code>. Zeigt, dass die Berechtigungsprüfung im Service greift.
+              </div>
+              <div style="background: var(--bg-card-subtle); padding: 0.5rem 0.85rem; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.82rem; margin-top: 0.4rem;">
+                mvnw test -Dtest=RoomCatalogServiceTest#addRoom_wirftException_wennNichtBerechtigt
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================
+       Floating Demo-Leiste (Unten für Präsentation)
+       ========================================== -->
+  <aside id="demo-bar" class="demo-bar">
+    <div class="demo-title">
+      <span>⚡</span> Demo-Trigger
+    </div>
+    <div class="demo-actions">
+      <button id="demo-trigger-pos" class="demo-btn pos" title="Positivfall: Raum fehlerfrei anlegen">
+        ✓ Positivfall (201)
+      </button>
+      <button id="demo-trigger-neg1" class="demo-btn neg" title="Negativfall 1: Validierungsfehler Kapazität <= 0">
+        ✕ Negativ: 422 Validierung
+      </button>
+      <button id="demo-trigger-neg2" class="demo-btn neg" title="Negativfall 2: Doppelbuchung">
+        ✕ Negativ: 409 Konflikt
+      </button>
+      <button id="demo-trigger-neg3" class="demo-btn neg" title="Negativfall 3: Fehlende Rechte">
+        ✕ Negativ: 403 Forbidden
+      </button>
+      <button class="demo-btn" style="background: var(--bg-card-subtle); color: var(--text-muted); padding: 0.35rem 0.55rem;" onclick="document.getElementById('demo-bar').classList.add('hidden')" title="Demo-Leiste schließen (Wieder öffnen mit Strg+D)">
+        ✕
+      </button>
+    </div>
+  </aside>
+
+  </div> <!-- /#app-container -->
+
+  <!-- ==========================================
+       Modale Dialoge
+       ========================================== -->
+
+  <!-- Modal: Raum anlegen (EC-8) -->
+  <div id="modal-create-room" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Neuen Raum anlegen</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-create-room')">&times;</button>
+      </div>
+      <form id="form-create-room">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="create-room-name">Raumname / Nummer <span class="required">*</span></label>
+            <input type="text" id="create-room-name" class="form-input" placeholder="z. B. Audimax Erle" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="create-room-capacity">Kapazität <span class="required">*</span></label>
+              <input type="number" id="create-room-capacity" class="form-input" placeholder="z. B. 60" required>
+              <span class="form-hint">Muss laut OpenAPI &ge; 1 sein</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="create-room-category">Kategorie</label>
+              <select id="create-room-category" class="form-select">
+                <option value="Hörsaal">Hörsaal</option>
+                <option value="Seminarraum" selected>Seminarraum</option>
+                <option value="Labor">Labor / PC-Pool</option>
+                <option value="Besprechung">Besprechungsraum</option>
+                <option value="Projektraum">Projektraum</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="create-room-building">Gebäude</label>
+            <select id="create-room-building" class="form-select">
+              <option value="Haus A">Haus A</option>
+              <option value="Haus B">Haus B</option>
+              <option value="Haus C">Haus C</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="create-room-equipment">Ausstattung (kommagetrennt)</label>
+            <input type="text" id="create-room-equipment" class="form-input" placeholder="z. B. Beamer, Whiteboard, Klimaanlage">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-room')">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Raum speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Raum bearbeiten (EC-9) -->
+  <div id="modal-edit-room" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Raum bearbeiten</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-edit-room')">&times;</button>
+      </div>
+      <form id="form-edit-room">
+        <input type="hidden" id="edit-room-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="edit-room-name">Raumname <span class="required">*</span></label>
+            <input type="text" id="edit-room-name" class="form-input" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="edit-room-capacity">Kapazität <span class="required">*</span></label>
+              <input type="number" id="edit-room-capacity" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="edit-room-category">Kategorie</label>
+              <select id="edit-room-category" class="form-select">
+                <option value="Hörsaal">Hörsaal</option>
+                <option value="Seminarraum">Seminarraum</option>
+                <option value="Labor">Labor</option>
+                <option value="Besprechung">Besprechungsraum</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-room-building">Gebäude</label>
+            <select id="edit-room-building" class="form-select">
+              <option value="Haus A">Haus A</option>
+              <option value="Haus B">Haus B</option>
+              <option value="Haus C">Haus C</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-room-equipment">Ausstattung</label>
+            <input type="text" id="edit-room-equipment" class="form-input">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Änderungen speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Raum buchen (EC-11 / EC-12) -->
+  <div id="modal-create-booking" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Raum buchen</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-create-booking')">&times;</button>
+      </div>
+      <form id="form-create-booking">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="booking-room-select">Raum auswählen <span class="required">*</span></label>
+            <select id="booking-room-select" class="form-select" required>
+              <!-- Dynamisch -->
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="booking-start-time">Von <span class="required">*</span></label>
+              <input type="datetime-local" id="booking-start-time" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="booking-end-time">Bis <span class="required">*</span></label>
+              <input type="datetime-local" id="booking-end-time" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="booking-purpose">Zweck / Veranstaltung</label>
+            <input type="text" id="booking-purpose" class="form-input" placeholder="z. B. Seminar, Projektbesprechung">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-booking')">Abbrechen</button>
+          <button type="submit" class="btn btn-success">Jetzt buchen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Benutzer-Wechsler (Schnellauswahl für Präsentation) -->
+  <div id="modal-user-switch" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Benutzer / Rolle wechseln</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-user-switch')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          Wähle ein Testprofil für die Präsentation aus:
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+          <div onclick="quickSwitchUser('usr-admin-1')" style="cursor: pointer; padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 700;">Lukas (Admin)</div>
+              <div style="font-size: 0.78rem; color: var(--neon-cyan-dark); font-weight: 700;">ROLLE: ADMIN</div>
+            </div>
+            <span class="btn btn-secondary btn-sm">Auswählen</span>
+          </div>
+
+          <div onclick="quickSwitchUser('usr-docent-1')" style="cursor: pointer; padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 700;">Prof. Dr. Schneider (Dozent)</div>
+              <div style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 700;">ROLLE: DOZENT</div>
+            </div>
+            <span class="btn btn-secondary btn-sm">Auswählen</span>
+          </div>
+
+          <div onclick="quickSwitchUser('usr-student-1')" style="cursor: pointer; padding: 0.85rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 700;">Anna Müller (Studentin)</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 700;">ROLLE: STUDENT (keine Adminrechte)</div>
+            </div>
+            <span class="btn btn-secondary btn-sm">Auswählen</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user-switch')">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Uni-Login (/api/v1/auth/login) -->
+  <div id="modal-login" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">🔐 Uni-Account Login</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-login')">&times;</button>
+      </div>
+      <form id="form-login">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="login-username">Uni-Kennung <span class="required">*</span></label>
+            <input type="text" id="login-username" class="form-input" placeholder="admin / dozent / student" required>
+            <span class="form-hint">Test-Accounts: 'admin' (PW: admin), 'dozent' (PW: pass), 'student' (PW: pass)</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-password">Passwort <span class="required">*</span></label>
+            <input type="password" id="login-password" class="form-input" placeholder="Passwort eingeben" required>
+            <span class="form-hint">Tipp für Demo: Falsches Passwort eingeben zeigt Negativfall 401 Unauthorized!</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-login')">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Anmelden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Rollen verwalten (EC-15) -->
+  <div id="modal-edit-roles" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Rollen verwalten</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-edit-roles')">&times;</button>
+      </div>
+      <form id="form-edit-roles">
+        <input type="hidden" id="edit-roles-user-id">
+        <div class="modal-body">
+          <p style="font-size: 0.9rem;">
+            Rollen für <strong id="edit-roles-user-name">Nutzer</strong> anpassen:
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; font-size: 0.92rem;">
+              <input type="checkbox" id="role-check-admin">
+              <span><strong>ADMIN</strong> (Vollzugriff auf Raumkatalog & Rechteverwaltung)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; font-size: 0.92rem;">
+              <input type="checkbox" id="role-check-dozent">
+              <span><strong>DOZENT</strong> (Räume buchen & eigene Buchungen verwalten)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; font-size: 0.92rem;">
+              <input type="checkbox" id="role-check-student">
+              <span><strong>STUDENT</strong> (Räume einsehen & für Lerngruppen buchen)</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-roles')">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Rollen aktualisieren</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Globaler Toast-Container für Feedback & Statusmeldungen -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Skripte -->
+  <script src="js/mockData.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
