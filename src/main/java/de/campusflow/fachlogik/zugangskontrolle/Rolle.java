@@ -3,15 +3,16 @@ package de.campusflow.fachlogik.zugangskontrolle;
 import java.util.Objects;
 
 /**
- * Rolle im Sinne von EC-4. Der konkrete Rollenkatalog (ADMIN, NUTZER, ...)
- * ist als Platzhalter gesetzt -- das Team sollte ihn gegen die tatsaechliche
- * Stakeholder-Liste (Studenten, Dozenten, Verwaltung, Sekretariat, Putzkraefte, ...)
- * abgleichen und ggf. erweitern.
+ * Rolle im Sinne von EC-4. Rollenkatalog: ADMIN, DOZENT, STUDENT --
+ * abgeglichen gegen die tatsaechliche Stakeholder-Liste (Studenten, Dozenten,
+ * Verwaltung). Verwaltung/Sekretariat/Putzkraefte sind noch nicht als eigene
+ * Rolle abgebildet, siehe offene Punkte in der ATAM-Bewertung.
  */
 public final class Rolle {
 
     public static final Rolle ADMIN = new Rolle("ADMIN");
-    public static final Rolle NUTZER = new Rolle("NUTZER");
+    public static final Rolle DOZENT = new Rolle("DOZENT");
+    public static final Rolle STUDENT = new Rolle("STUDENT");
 
     private final String name;
 

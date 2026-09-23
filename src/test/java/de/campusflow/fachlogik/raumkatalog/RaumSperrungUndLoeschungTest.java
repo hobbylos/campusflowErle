@@ -60,7 +60,7 @@ class RaumSperrungUndLoeschungTest {
         raumKatalogService = new RaumKatalogService(raumRepo, facilityAdapter, pruefer, eventPublisher);
 
         admin = new Nutzer("n-admin", "admin01", "Admin Lukas", Set.of(Rolle.ADMIN));
-        student = new Nutzer("n-stud", "stud01", "Student Anna", Set.of(Rolle.NUTZER));
+        student = new Nutzer("n-stud", "stud01", "Student Anna", Set.of(Rolle.STUDENT));
     }
 
     @Test

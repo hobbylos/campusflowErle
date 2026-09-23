@@ -25,10 +25,10 @@ public class InMemoryNutzerRepository implements NutzerRepository {
     public InMemoryNutzerRepository() {
         Nutzer admin = new Nutzer("n-1", "admin01", "Admin Verwaltung (Lukas)", Set.of(Rolle.ADMIN));
         Nutzer adminAlias = new Nutzer("n-1-alias", "admin", "Admin Verwaltung (Lukas)", Set.of(Rolle.ADMIN));
-        Nutzer nutzer = new Nutzer("n-2", "stud01", "Test Student (Anna)", Set.of(Rolle.NUTZER));
-        Nutzer nutzerAlias = new Nutzer("n-2-alias", "student", "Test Student (Anna)", Set.of(Rolle.NUTZER));
-        Nutzer dozent = new Nutzer("n-3", "dozent01", "Dr. Schneider (Dozent)", Set.of(new Rolle("DOZENT")));
-        Nutzer dozentAlias = new Nutzer("n-3-alias", "dozent", "Dr. Schneider (Dozent)", Set.of(new Rolle("DOZENT")));
+        Nutzer nutzer = new Nutzer("n-2", "stud01", "Test Student (Anna)", Set.of(Rolle.STUDENT));
+        Nutzer nutzerAlias = new Nutzer("n-2-alias", "student", "Test Student (Anna)", Set.of(Rolle.STUDENT));
+        Nutzer dozent = new Nutzer("n-3", "dozent01", "Dr. Schneider (Dozent)", Set.of(Rolle.DOZENT));
+        Nutzer dozentAlias = new Nutzer("n-3-alias", "dozent", "Dr. Schneider (Dozent)", Set.of(Rolle.DOZENT));
 
         nutzerNachId.put(admin.getId(), admin);
         nutzerNachId.put(adminAlias.getId(), adminAlias);
