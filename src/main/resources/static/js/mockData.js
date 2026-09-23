@@ -125,26 +125,58 @@ const INITIAL_MOCK_DATA = {
   ]
 };
 
-// Im localStorage ablegen für konsistente Demo-Bearbeitung
-function getMockStorage() {
-  const stored = localStorage.getItem("campusflow_mock_data");
-  if (!stored) {
-    localStorage.setItem("campusflow_mock_data", JSON.stringify(INITIAL_MOCK_DATA));
-    return JSON.parse(JSON.stringify(INITIAL_MOCK_DATA));
-  }
+// Robustes Storage-Handling mit Fallback (für Mobilgeräte, Safari Private Mode etc.)
+let inMemoryStorage = null;
+
+function safeGetItem(key) {
   try {
-    return JSON.parse(stored);
+    return localStorage.getItem(key);
   } catch (e) {
-    localStorage.setItem("campusflow_mock_data", JSON.stringify(INITIAL_MOCK_DATA));
-    return JSON.parse(JSON.stringify(INITIAL_MOCK_DATA));
+    return null;
   }
+}
+
+function safeSetItem(key, val) {
+  try {
+    localStorage.setItem(key, val);
+  } catch (e) {
+    // Falls localStorage blockiert ist (z. B. Private Browsing)
+  }
+}
+
+function safeRemoveItem(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {
+    // Ignore
+  }
+}
+
+function getMockStorage() {
+  if (!inMemoryStorage) {
+    const stored = safeGetItem("campusflow_mock_data");
+    if (stored) {
+      try {
+        inMemoryStorage = JSON.parse(stored);
+      } catch (e) {
+        inMemoryStorage = JSON.parse(JSON.stringify(INITIAL_MOCK_DATA));
+      }
+    } else {
+      inMemoryStorage = JSON.parse(JSON.stringify(INITIAL_MOCK_DATA));
+      safeSetItem("campusflow_mock_data", JSON.stringify(inMemoryStorage));
+    }
+  }
+  return inMemoryStorage;
 }
 
 function saveMockStorage(data) {
-  localStorage.setItem("campusflow_mock_data", JSON.stringify(data));
+  inMemoryStorage = data;
+  safeSetItem("campusflow_mock_data", JSON.stringify(data));
 }
 
 function resetMockStorage() {
-  localStorage.setItem("campusflow_mock_data", JSON.stringify(INITIAL_MOCK_DATA));
-  return JSON.parse(JSON.stringify(INITIAL_MOCK_DATA));
+  inMemoryStorage = JSON.parse(JSON.stringify(INITIAL_MOCK_DATA));
+  safeSetItem("campusflow_mock_data", JSON.stringify(inMemoryStorage));
+  return inMemoryStorage;
 }
+

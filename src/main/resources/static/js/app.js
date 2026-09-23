@@ -140,6 +140,12 @@ function handleSwitchUser() {
   openModal("modal-user-switch");
 }
 
+// Global für Mobile- und Inline-Handler verfügbar machen
+window.quickLoginAs = quickLoginAs;
+window.handleLogout = handleLogout;
+window.handleSwitchUser = handleSwitchUser;
+window.quickSwitchUser = quickSwitchUser;
+
 function initUserSessionUI() {
   updateUserDisplay();
 
