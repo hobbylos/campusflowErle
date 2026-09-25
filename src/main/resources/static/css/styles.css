@@ -794,7 +794,10 @@ body {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
-  z-index: 2000;
+  /* Muss ueber dem Login-Gate (z-index: 9999) liegen, sonst sind Fehler-
+     Toasts (z. B. 401 bei unbekannten Zugangsdaten) waehrend des Logins
+     unsichtbar, weil der Gate-Screen sie optisch verdeckt. */
+  z-index: 10000;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
